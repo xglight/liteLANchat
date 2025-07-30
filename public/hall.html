@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大厅 - liteLANchat</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="hall.css">
+</head>
+
+<body>
+    <div class="hall-container">
+        <button class="logout-btn" onclick="logout()">🚪 退出登录</button>
+        <div class="hall-title">💬 聊天室大厅</div>
+        <div class="create-area">
+            <input type="text" id="room-name" placeholder="输入新聊天室名称..." />
+            <button class="room-btn" onclick="createRoom()">✨ 创建</button>
+        </div>
+        <ul class="room-list" id="room-list"></ul>
+    </div>
+    <script src="hall.js"></script>
+</body>
+
+</html>

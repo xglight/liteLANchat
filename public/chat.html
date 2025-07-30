@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>liteLANchat 聊天室</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="chat.css">
+    <!-- 代码高亮 -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.8.0/styles/github.min.css" rel="stylesheet">
+    <!-- KaTeX LaTeX 渲染 -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <!-- Markdown 渲染 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+
+<body>
+    <div class="chat-root">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>在线成员</h2>
+            </div>
+            <ul id="user-list" class="user-list"></ul>
+            <div id="room-ops" class="room-ops"></div>
+            <div class="sidebar-footer">
+                <button id="exit-room-btn" class="exit-btn">🚪 退出房间</button>
+            </div>
+        </aside>
+        <main class="chat-main">
+            <header class="chat-header">
+                <div class="room-title" id="room-title"></div>
+                <div class="room-notice" id="notice-bar"></div>
+            </header>
+            <section id="history" class="chat-history"></section>
+            <footer class="chat-footer">
+                <div class="toolbar" id="toolbar">
+                    <button type="button" title="图片" id="btn-image">🖼️</button>
+                    <button type="button" title="代码" id="btn-code">💻</button>
+                    <button type="button" title="粗体" id="btn-bold">B</button>
+                    <button type="button" title="斜体" id="btn-italic">I</button>
+                    <button type="button" title="LaTeX公式" id="btn-latex">∑</button>
+                    <button type="button" title="预览" id="btn-preview">👁️</button>
+                    <input type="file" id="image-upload" accept="image/*" style="display:none;">
+                </div>
+                <div class="input-row">
+                    <textarea id="message" placeholder="输入消息，支持 Markdown 和 LaTeX，Enter发送，Ctrl+Enter换行"></textarea>
+                    <div id="preview-area" class="preview-area"></div>
+                </div>
+                <button id="send" disabled>发送</button>
+            </footer>
+        </main>
+    </div>
+    <script src="chat-init.js"></script>
+    <script src="client.js"></script>
+</body>
+
+</html>
