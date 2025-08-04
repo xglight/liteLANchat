@@ -103,6 +103,16 @@ const wss = new WebSocket.Server({ server });
 // 静态资源
 app.use(express.static(path.join(__dirname, 'public')));
 
+// 检查用户名是否已被使用的API
+app.get('/api/check-nickname', (req, res) => {
+    const nickname = req.query.nickname;
+    if (!nickname) {
+        return res.json({ available: false, message: '用户名不能为空' });
+    }
+    const existingUser = Array.from(onlineUsers.values()).find(user => user.nickname === nickname);
+    res.json({ available: !existingUser, message: existingUser ? '该用户名已被使用' : '用户名可用' });
+});
+
 // 初始化 SQLite
 const db = new sqlite3.Database('chat.db');
 db.serialize(() => {
@@ -324,6 +334,19 @@ wss.on('connection', (ws) => {
         if (data.type === 'login') {
             nickname = data.nickname;
             room = data.room || '默认聊天室';
+
+            // 检查昵称是否已被使用
+            const existingUser = Array.from(onlineUsers.values()).find(user => user.nickname === nickname);
+            if (existingUser) {
+                logWarning(`[用户登录] 昵称冲突: ${nickname} 已被使用`);
+                const errorMsg = strToHex(JSON.stringify({
+                    type: 'login_error',
+                    error: '该用户名已被使用，请更换一个用户名'
+                }));
+                ws.send(errorMsg);
+                return;
+            }
+
             logInfo(`[用户登录] ${nickname} 进入房间 ${room}`);
 
             let roomObj = chatRooms.find(r => r.name === room);
@@ -446,4 +469,4 @@ server.listen(PORT, () => {
     logSuccess(`[服务器启动] 自动房主转让功能已启用`);
     logSuccess(`[服务器启动] 空房间自动删除功能已启用`);
     logImportant(`[服务器启动] 日志文件将保存在 logs/ 文件夹中`);
-}); 
+});

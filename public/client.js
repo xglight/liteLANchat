@@ -14,12 +14,180 @@ document.addEventListener('DOMContentLoaded', function () {
     let ws;
     let isCurrentUserOwner = false; // 全局变量跟踪当前用户是否为房主
 
+    // 标签闪烁相关变量
+    let documentTitle = document.title;
+    let flashInterval = null;
+    let isFlashing = false;
+
+    // 通知相关变量
+    let notificationPermission = 'default'; // 默认值，可能是 'default', 'granted', 或 'denied'
+
+    // 更新通知按钮样式
+    function updateNotifyButtonStyle() {
+        const notifyBtn = document.getElementById('btn-notify');
+        if (!notifyBtn) return;
+
+        if (!('Notification' in window)) {
+            notifyBtn.style.opacity = '0.5';
+            notifyBtn.title = '此浏览器不支持通知';
+            return;
+        }
+
+        switch (Notification.permission) {
+            case 'granted':
+                notifyBtn.style.color = '#10b981'; // 绿色
+                notifyBtn.title = '通知已启用';
+                break;
+            case 'denied':
+                notifyBtn.style.color = '#ef4444'; // 红色
+                notifyBtn.title = '通知已禁用（请在浏览器设置中启用）';
+                break;
+            default:
+                notifyBtn.style.color = ''; // 默认颜色
+                notifyBtn.title = '点击启用通知';
+        }
+    }
+
+    // 请求通知权限
+    function requestNotificationPermission() {
+        console.log('请求通知权限');
+        // 检查浏览器是否支持通知
+        if (!('Notification' in window)) {
+            console.log('此浏览器不支持通知功能');
+            alert('您的浏览器不支持通知功能');
+            return;
+        }
+
+        // 已经有权限
+        if (Notification.permission === 'granted') {
+            notificationPermission = 'granted';
+            console.log('通知权限已授予');
+            alert('通知已启用');
+            return;
+        }
+
+        // 权限被拒绝
+        if (Notification.permission === 'denied') {
+            notificationPermission = 'denied';
+            console.log('通知权限已被拒绝');
+            alert('通知权限已被拒绝，请在浏览器设置中修改');
+            return;
+        }
+
+        // 请求权限
+        console.log('正在请求通知权限...');
+        Notification.requestPermission()
+            .then(permission => {
+                console.log('通知权限请求结果:', permission);
+                notificationPermission = permission;
+
+                // 更新按钮样式
+                updateNotifyButtonStyle();
+
+                if (permission === 'granted') {
+                    // 显示一个欢迎通知
+                    try {
+                        const notification = new Notification('通知已启用', {
+                            body: '您将在收到新消息时收到通知',
+                            icon: '/favicon.ico' // 如果有网站图标
+                        });
+                        // 5秒后自动关闭
+                        setTimeout(() => notification.close(), 5000);
+                    } catch (error) {
+                        console.error('显示欢迎通知时出错:', error);
+                    }
+                } else if (permission === 'denied') {
+                    alert('您已拒绝通知权限，如需启用请在浏览器设置中修改');
+                }
+            })
+            .catch(error => {
+                console.error('请求通知权限时出错:', error);
+                alert('请求通知权限时出错，请稍后再试');
+            });
+    }
+
+    // 显示通知
+    function showNotification(sender, message) {
+        // 检查浏览器是否支持通知
+        if (!('Notification' in window)) {
+            console.log('此浏览器不支持通知功能');
+            return;
+        }
+
+        // 检查通知权限
+        if (Notification.permission !== 'granted') {
+            console.log('通知权限未授予');
+            return;
+        }
+
+        // 提取纯文本内容（去除markdown和图片）
+        let plainText = message.replace(/!\[.*?\]\(.*?\)/g, '[图片]');
+        plainText = plainText.replace(/\[.*?\]\(.*?\)/g, '$1');
+        plainText = plainText.replace(/\*\*(.*?)\*\*/g, '$1');
+        plainText = plainText.replace(/\*(.*?)\*/g, '$1');
+        plainText = plainText.replace(/```[\s\S]*?```/g, '[代码]');
+        plainText = plainText.replace(/`(.*?)`/g, '$1');
+
+        // 限制长度
+        if (plainText.length > 100) {
+            plainText = plainText.substring(0, 97) + '...';
+        }
+
+        try {
+            const notification = new Notification(`${sender} 发送了新消息`, {
+                body: plainText,
+                icon: '/favicon.ico', // 如果有网站图标
+                tag: 'chat-message' // 使用相同的tag会替换之前的通知
+            });
+
+            // 点击通知时聚焦到窗口
+            notification.onclick = function () {
+                window.focus();
+                this.close();
+            };
+
+            // 自动关闭通知（5秒后）
+            setTimeout(() => notification.close(), 5000);
+            console.log('通知已显示:', sender, plainText);
+        } catch (error) {
+            console.error('显示通知时出错:', error);
+        }
+    }
+
+    // 更新WebSocket连接状态显示
+    function updateConnectionStatus(status) {
+        const wsStatus = document.getElementById('ws-status');
+        if (!wsStatus) return;
+
+        // 移除所有状态类
+        wsStatus.classList.remove('connected', 'connecting', 'disconnected');
+
+        switch (status) {
+            case 'connected':
+                wsStatus.textContent = '已连接';
+                wsStatus.classList.add('connected');
+                break;
+            case 'connecting':
+                wsStatus.textContent = '连接中...';
+                wsStatus.classList.add('connecting');
+                break;
+            case 'disconnected':
+                wsStatus.textContent = '已断开';
+                wsStatus.classList.add('disconnected');
+                break;
+        }
+    }
+
     // 连接 WebSocket
     function connectWS() {
+        updateConnectionStatus('connecting');
+
         ws = new WebSocket(`ws://${location.host}`);
         ws.binaryType = 'arraybuffer';
 
         ws.onopen = function () {
+            updateConnectionStatus('connected');
+
             ws.send(strToHex(JSON.stringify({
                 type: 'login',
                 nickname: window.NICKNAME,
@@ -31,6 +199,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 checkOwnerStatus();
             }, 1000);
         };
+
+        // 重置标题
+        documentTitle = document.title;
 
         ws.onmessage = function (event) {
             let msg;
@@ -47,6 +218,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 appendMsg(msg.nickname, msg.content, msg.time);
                 // 新消息自动滚动到底部
                 history.scrollTop = history.scrollHeight;
+
+                // 如果页面不在前台，开始闪烁标签并显示通知
+                if (msg.nickname !== window.NICKNAME && document.hidden) {
+                    if (!isFlashing) {
+                        startTitleFlash();
+                    }
+                    // 显示浏览器通知
+                    console.log('尝试显示通知:', msg.nickname, msg.content);
+                    showNotification(msg.nickname, msg.content);
+                }
             } else if (msg.type === 'users') {
                 renderUserList(msg.users);
             } else if (msg.type === 'notice') {
@@ -64,11 +245,24 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (msg.type === 'room_user_counts') {
                 // 更新房间用户数量显示
                 updateRoomUserCounts(msg.roomUserCounts);
+            } else if (msg.type === 'login_error') {
+                // 处理登录错误（昵称冲突）
+                alert(msg.error);
+                // 清除cookie并跳转到登录页面
+                document.cookie = 'nickname=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                window.location.href = 'index.html';
             }
         };
 
         ws.onclose = function () {
+            updateConnectionStatus('disconnected');
             setTimeout(connectWS, 2000); // 自动重连
+        };
+
+        // 添加错误处理
+        ws.onerror = function (error) {
+            console.error('WebSocket错误:', error);
+            updateConnectionStatus('disconnected');
         };
     }
     connectWS();
@@ -78,10 +272,62 @@ document.addEventListener('DOMContentLoaded', function () {
         history.scrollTop = history.scrollHeight;
     }, 100);
 
+    // 页面加载后检查通知权限
+    setTimeout(() => {
+        // 更新通知权限状态
+        if ('Notification' in window) {
+            notificationPermission = Notification.permission;
+        }
+
+        // 添加通知设置按钮
+        const toolbarDiv = document.getElementById('toolbar');
+        if (toolbarDiv) {
+            const notifyBtn = document.createElement('button');
+            notifyBtn.type = 'button';
+            notifyBtn.title = '通知设置';
+            notifyBtn.id = 'btn-notify';
+            notifyBtn.textContent = '🔔';
+            notifyBtn.addEventListener('click', requestNotificationPermission);
+            toolbarDiv.appendChild(notifyBtn);
+
+            // 根据当前权限状态更新按钮样式
+            updateNotifyButtonStyle();
+        }
+    }, 500);
+
     // 初始检查房主状态
     setTimeout(() => {
         checkOwnerStatus();
     }, 500);
+
+    // 标签闪烁功能
+    function startTitleFlash() {
+        if (isFlashing) return;
+
+        isFlashing = true;
+        let isOriginalTitle = false;
+        documentTitle = document.title; // 保存原始标题
+
+        flashInterval = setInterval(() => {
+            document.title = isOriginalTitle ? documentTitle : '【新消息】' + documentTitle;
+            isOriginalTitle = !isOriginalTitle;
+        }, 800);
+    }
+
+    function stopTitleFlash() {
+        if (!isFlashing) return;
+
+        clearInterval(flashInterval);
+        document.title = documentTitle;
+        isFlashing = false;
+    }
+
+    // 当页面获得焦点时停止闪烁
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && isFlashing) {
+            stopTitleFlash();
+        }
+    });
 
     // 发送按钮启用逻辑
     messageInput.addEventListener('input', function () {
